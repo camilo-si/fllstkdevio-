@@ -1,264 +1,466 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Form, Button, Table, Alert, Card } from 'react-bootstrap';
+import React, { useState, useMemo } from 'react';
+import { 
+  Container, 
+  Row, 
+  Col, 
+  Form, 
+  Button, 
+  Card, 
+  Table, 
+  Alert, 
+  InputGroup 
+} from 'react-bootstrap';
 
-function CalculadoraIntegral() {
-
-  // --- 1. ESTADOS PARA CADA INPUT ---
-  // Inputs numéricos [cite: 52-58]
-  const [potenciaPanel, setPotenciaPanel] = useState(450);
-  const [cantidadPaneles, setCantidadPaneles] = useState(8);
-  const [precioInversor, setPrecioInversor] = useState(650000);
-  const [precioBateria, setPrecioBateria] = useState(320000);
-  const [cantidadBaterias, setCantidadBaterias] = useState(1);
-  const [precioEstructura, setPrecioEstructura] = useState(180000);
-  const [precioInstalacion, setPrecioInstalacion] = useState(350000);
-  const [pesoEnvio, setPesoEnvio] = useState(90);
-  const [valorPie, setValorPie] = useState(10); // [cite: 89]
-
-  // Selects (almacenamos el *valor* que afecta el cálculo) [cite: 59-89]
-  const [tipoTecho, setTipoTecho] = useState(0.05); // Teja/Asfalto (+5%) [cite: 61]
-  const [region, setRegion] = useState(5000); // RM ($5.000) [cite: 65]
-  const [complejidad, setComplejidad] = useState(0); // Baja (0%) [cite: 70]
-  const [subsidio, setSubsidio] = useState(0); // Sin subsidio (0%) [cite: 74]
-  const [metodoEnvio, setMetodoEnvio] = useState(1.0); // Estándar (x1.00) [cite: 78]
-  const [garantia, setGarantia] = useState(0.02); // 12 meses (+2%) [cite: 81]
-  const [planPago, setPlanPago] = useState(0); // Contado (0%) [cite: 85]
-  const [tipoPie, setTipoPie] = useState('porcentaje'); // [cite: 89]
-
-  // --- 2. ESTADOS PARA LOS RESULTADOS ---
-  const [resultados, setResultados] = useState({});
-  const [potenciaEstimada, setPotenciaEstimada] = useState(0);
-
-  // --- 3. LÓGICA DE CÁLCULO (useEffect) ---
-  // Se ejecutará cada vez que cambie un input
-  useEffect(() => {
-    // --- Lógica de Negocio (Aquí va tu trabajo) ---
-    // Sigue las reglas de 
-    
-    const potEstimada = (potenciaPanel * cantidadPaneles) / 1000; // [cite: 91]
-    setPotenciaEstimada(potEstimada);
-
-    // [cite: 93, 95]
-    const subtotalEquipos = (precioInversor) + (precioBateria * cantidadBaterias) + (precioEstructura);
-    const recargoTecho = subtotalEquipos * tipoTecho; // [cite: 96]
-    const instalacionFinal = precioInstalacion + (precioInstalacion * complejidad); // [cite: 97]
-    
-    const subtotalConRecargo = subtotalEquipos + recargoTecho;
-    const descuentoSubsidio = subtotalConRecargo * subsidio; // [cite: 98]
-    const subtotalConSubsidio = subtotalConRecargo - descuentoSubsidio;
-
-    const baseEnvio = region + (pesoEnvio * 700);
-    const costoEnvio = baseEnvio * metodoEnvio; // [cite: 100]
-    const costoGarantia = subtotalEquipos * garantia; // [cite: 101]
-
-    const baseIva = subtotalConSubsidio + instalacionFinal;
-    const iva = baseIva * 0.19; // [cite: 99]
-
-    const totalAntesFinanciar = baseIva + iva + costoEnvio + costoGarantia; // [cite: 102]
-
-    // ... Lógica de financiamiento [cite: 103-109]
-    let pieCalculado = 0;
-    if (tipoPie === 'porcentaje') {
-      pieCalculado = totalAntesFinanciar * (valorPie / 100); // [cite: 104]
-    } else {
-      pieCalculado = valorPie; // [cite: 104]
-    }
-    
-    // ... más lógica para cuotas, interés, etc.
-
-    // Guarda los resultados para la tabla
-    setResultados({
-      subtotalEquipos: subtotalEquipos,
-      recargoTecho: recargoTecho,
-      descuentoSubsidio: descuentoSubsidio,
-      instalacionFinal: instalacionFinal,
-      iva: iva,
-      costoEnvio: costoEnvio,
-      costoGarantia: costoGarantia,
-      totalAntesFinanciar: totalAntesFinanciar,
-      pieCalculado: pieCalculado,
-      // ... más resultados
-      totalFinal: totalAntesFinanciar // (Actualizar con financiamiento)
-    });
-
-  }, [
-    potenciaPanel, cantidadPaneles, precioInversor, precioBateria, cantidadBaterias,
-    precioEstructura, precioInstalacion, pesoEnvio, valorPie, tipoTecho, region,
-    complejidad, subsidio, metodoEnvio, garantia, planPago, tipoPie
-  ]);
-
-  const handleReiniciar = () => {
-  // ... resetea todos los useState a sus valores iniciales ...
-  setPotenciaPanel(450);
-  setCantidadPaneles(8);
-  // ... Aquí debes seguir añadiendo el resto de "set..."
-  // para cada estado que definiste en tu componente:
-  setPrecioInversor(650000);
-  setPrecioBateria(320000);
-  setCantidadBaterias(1);
-  setPrecioEstructura(180000);
-  setPrecioInstalacion(350000);
-  setPesoEnvio(90);
-  setValorPie(10);
-  setTipoTecho(0.05);
-  setRegion(5000);
-  setComplejidad(0);
-  setSubsidio(0);
-  setMetodoEnvio(1.0);
-  setGarantia(0.02);
-  setPlanPago(0);
-  setTipoPie('porcentaje');
+// Estado inicial del formulario, basado en los placeholders de tu imagen
+const initialState = {
+  panelW: 450,
+  cantidadPaneles: 8,
+  inversorPrecio: 650000,
+  bateriaPrecio: 320000,
+  cantidadBaterias: 1,
+  estructurasPrecio: 190000,
+  instalacionBase: 350000,
+  pesoKg: 90,
+  tipoTecho: 0.05, // Teja/Asfalto (+5%)
+  region: 5000, // RM
+  complejidad: 0, // Baja
+  subsidio: 0, // Sin subsidio
+  metodoEnvio: 1.0, // Estándar
+  garantia: 0.02, // 12 meses (+2%)
+  planPago: "0-1", // Contado (tasa-meses)
+  tipoPie: "porcentaje",
+  valorPie: 10,
 };
 
-  // Helper para formatear números como moneda
-  const formatCurrency = (num) => {
-    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(num);
+// --- Componente Principal ---
+function CalculadoraDemo() {
+  const [formData, setFormData] = useState(initialState);
+  const [copied, setCopied] = useState(false);
+
+  // Helper para formatear a CLP
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('es-CL', {
+      style: 'currency',
+      currency: 'CLP',
+      minimumFractionDigits: 0,
+    }).format(Math.round(value)); // Redondeamos para evitar decimales en CLP
   };
 
+  // --- Lógica de Cálculo ---
+  const results = useMemo(() => {
+    // Helper para convertir valores del form a números
+    const n = (val) => Number(val) || 0;
+
+    const {
+      panelW, cantidadPaneles, inversorPrecio, bateriaPrecio, cantidadBaterias,
+      estructurasPrecio, instalacionBase, pesoKg, tipoTecho, region,
+      complejidad, subsidio, metodoEnvio, garantia, planPago, tipoPie, valorPie
+    } = formData;
+
+    // 1. Potencia
+    const potenciaEstimada = (n(panelW) * n(cantidadPaneles)) / 1000; // en kW
+
+    // 2. Advertencia
+    const advertencia = potenciaEstimada > 7 && n(cantidadBaterias) === 0;
+
+    // 3. Subtotal Equipos
+    const subtotalEquipos = n(inversorPrecio) + (n(bateriaPrecio) * n(cantidadBaterias)) + n(estructurasPrecio);
+
+    // 4. Recargo Techo
+    const recargoTecho = subtotalEquipos * n(tipoTecho);
+
+    // 5. Instalación
+    const instalacionFinal = n(instalacionBase) + (n(instalacionBase) * n(complejidad));
+
+    // 6. Subsidio (se aplica sobre equipos + recargo)
+    const baseSubsidio = subtotalEquipos + recargoTecho;
+    const montoSubsidio = baseSubsidio * n(subsidio); // subsidio es negativo
+
+    // 7. Costo Equipos Final (con recargo y subsidio)
+    const costoEquiposFinal = subtotalEquipos + recargoTecho + montoSubsidio;
+
+    // 8. Garantía (sobre subtotal equipos, antes de subsidio)
+    const costoGarantia = subtotalEquipos * n(garantia);
+
+    // 9. IVA (sobre equipos final + instalación)
+    const baseIva = costoEquiposFinal + instalacionFinal;
+    const iva = baseIva * 0.19;
+
+    // 10. Envío
+    const costoEnvioBase = n(region) + (n(pesoKg) * 700);
+    const costoEnvioFinal = costoEnvioBase * n(metodoEnvio);
+
+    // 11. Total antes de financiar
+    const totalAntesFinanciar = costoEquiposFinal + instalacionFinal + iva + costoEnvioFinal + costoGarantia;
+
+    // 12. Pie
+    let montoPie = 0;
+    if (tipoPie === 'porcentaje') {
+      montoPie = totalAntesFinanciar * (n(valorPie) / 100);
+    } else {
+      montoPie = n(valorPie);
+    }
+    // No permitir pie mayor al total
+    montoPie = Math.min(montoPie, totalAntesFinanciar); 
+
+    // 13. Financiamiento
+    const montoAFinanciar = totalAntesFinanciar - montoPie;
+    const [tasaMensualStr, nCuotasStr] = planPago.split('-');
+    const tasaMensual = n(tasaMensualStr);
+    const nCuotas = n(nCuotasStr);
+
+    // 14. Interés (Simple)
+    const interesTotal = montoAFinanciar * tasaMensual * nCuotas;
+    
+    // 15. Cuota
+    const cuotaMensual = nCuotas > 1 ? (montoAFinanciar + interesTotal) / nCuotas : 0;
+
+    // 16. Total Final
+    const totalFinal = totalAntesFinanciar + interesTotal;
+
+    return {
+      potenciaEstimada,
+      advertencia,
+      subtotalEquipos,
+      recargoTecho,
+      montoSubsidio,
+      instalacionFinal,
+      iva,
+      costoEnvioFinal,
+      costoGarantia,
+      totalAntesFinanciar,
+      montoPie,
+      interesTotal,
+      cuotaMensual,
+      totalFinal
+    };
+  }, [formData]);
+
+  // --- Manejadores de Eventos ---
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleReset = (e) => {
+    e.preventDefault();
+    setFormData(initialState);
+  };
+
+  const handleCopy = (e) => {
+    e.preventDefault();
+    const summaryText = `
+      --- Resumen de Cotización Solar ---
+      Potencia estimada: ${results.potenciaEstimada.toFixed(2)} kW
+      Subtotal equipos: ${formatCurrency(results.subtotalEquipos)}
+      Recargo techo: ${formatCurrency(results.recargoTecho)}
+      Subsidio: ${formatCurrency(results.montoSubsidio)}
+      Instalación final: ${formatCurrency(results.instalacionFinal)}
+      IVA 19%: ${formatCurrency(results.iva)}
+      Envío: ${formatCurrency(results.costoEnvioFinal)}
+      Garantía: ${formatCurrency(results.costoGarantia)}
+      Total antes de financiar: ${formatCurrency(results.totalAntesFinanciar)}
+      Pie: ${formatCurrency(results.montoPie)}
+      Interés total: ${formatCurrency(results.interesTotal)}
+      Cuota (${formData.planPago.split('-')[1]} meses): ${formatCurrency(results.cuotaMensual)}
+      --- TOTAL FINAL: ${formatCurrency(results.totalFinal)} ---
+    `;
+    
+    // Usar execCommand para compatibilidad en iframes
+    const textArea = document.createElement("textarea");
+    textArea.value = summaryText.trim().replace(/ +/g, ' '); // Limpiar espacios
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000); // Mensaje dura 2 seg
+    } catch (err) {
+      console.error('Error al copiar', err);
+    }
+    document.body.removeChild(textArea);
+  };
+  
+  // --- Renderizado ---
   return (
-    <Container id="demo-calculadora" className="my-5 p-4 bg-light rounded">
-      <h2 className="text-center mb-4">DEMO calculadora</h2>
-      <Row className="g-5"> {/* g-5 es un gutter grande */}
+    <Container className="my-5">
+      <h2 className="text-start mb-0">DEMO calculadora</h2>
+      <p className="text-start text-muted">Maquetado de formulario y resumen. (Valores referenciales)</p>
+
+      <Row className="g-4 mt-2">
 
         {/* --- Columna Izquierda: Formulario --- */}
         <Col xs={12} lg={6}>
-          <Card className="p-4 shadow-sm">
-            <h3>Formulario</h3>
-            <Form>
-              <Row>
-                {/* Inputs numéricos [cite: 52-58] */}
-                <Col md={6} className="mb-3">
-                  <Form.Group>
-                    <Form.Label>Potencia del panel (W)</Form.Label>
-                    <Form.Control type="number" value={potenciaPanel} onChange={(e) => setPotenciaPanel(Number(e.target.value))} />
-                  </Form.Group>
-                </Col>
-                <Col md={6} className="mb-3">
-                  <Form.Group>
-                    <Form.Label>Cantidad de paneles</Form.Label>
-                    <Form.Control type="number" value={cantidadPaneles} onChange={(e) => setCantidadPaneles(Number(e.target.value))} />
-                  </Form.Group>
-                </Col>
-                {/* ... Repetir para Inversor, Batería, Cant. Baterías, Estructura, Instalación, Peso ... */}
-              </Row>
+          <Card className="shadow-sm border-0 h-100">
+            <Card.Body className="p-4">
+              <Card.Title as="h5" className="mb-3">Formulario</Card.Title>
+              <Form>
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Potencia del panel (W)</Form.Label>
+                      <Form.Control type="number" min="0" name="panelW" value={formData.panelW} onChange={handleChange} />
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Cantidad de paneles</Form.Label>
+                      <Form.Control type="number" min="0" name="cantidadPaneles" value={formData.cantidadPaneles} onChange={handleChange} />
+                    </Form.Group>
+                  </Col>
+                </Row>
+                
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Inversor (precio)</Form.Label>
+                      <Form.Control type="number" min="0" name="inversorPrecio" value={formData.inversorPrecio} onChange={handleChange} />
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Batería (precio unidad)</Form.Label>
+                      <Form.Control type="number" min="0" name="bateriaPrecio" value={formData.bateriaPrecio} onChange={handleChange} />
+                    </Form.Group>
+                  </Col>
+                </Row>
 
-              {/* Selects [cite: 59-89] */}
-              <Form.Group className="mb-3">
-                <Form.Label>Tipo de techo</Form.Label>
-                <Form.Select value={tipoTecho} onChange={(e) => setTipoTecho(Number(e.target.value))}>
-                  <option value={0.05}>Teja/Asfalto (+5%)</option> {/* [cite: 61] */}
-                  <option value={0.02}>Zinc/Planchas (+2%)</option> {/* [cite: 62] */}
-                  <option value={0.07}>Hormigón (+7%)</option> {/* [cite: 63] */}
-                </Form.Select>
-              </Form.Group>
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Cantidad baterías</Form.Label>
+                      <Form.Control type="number" min="0" name="cantidadBaterias" value={formData.cantidadBaterias} onChange={handleChange} />
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Estruct./cableado</Form.Label>
+                      <Form.Control type="number" min="0" name="estructurasPrecio" value={formData.estructurasPrecio} onChange={handleChange} />
+                    </Form.Group>
+                  </Col>
+                </Row>
 
-              <Form.Group className="mb-3">
-                <Form.Label>Región (para envío)</Form.Label>
-                <Form.Select value={region} onChange={(e) => setRegion(Number(e.target.value))}>
-                  <option value={5000}>RM ($5.000)</option> {/* [cite: 65] */}
-                  <option value={9000}>Norte ($9.000)</option> {/* [cite: 66] */}
-                  <option value={10000}>Sur ($10.000)</option> {/* [cite: 67] */}
-                  <option value={15000}>Austral ($15.000)</option> {/* [cite: 68] */}
-                </Form.Select>
-              </Form.Group>
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Instalación base</Form.Label>
+                      <Form.Control type="number" min="0" name="instalacionBase" value={formData.instalacionBase} onChange={handleChange} />
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Peso envío (kg)</Form.Label>
+                      <Form.Control type="number" min="0" name="pesoKg" value={formData.pesoKg} onChange={handleChange} />
+                    </Form.Group>
+                  </Col>
+                </Row>
 
-              {/* ... Repetir para Complejidad, Subsidio, Método Envío, Garantía, Plan Pago ... */}
+                <hr className="my-3" />
 
-              <Row className="mb-3">
-                <Col>
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Tipo de techo</Form.Label>
+                      <Form.Select name="tipoTecho" value={formData.tipoTecho} onChange={handleChange}>
+                        <option value="0.05">Teja/Asfalto (+5%)</option>
+                        <option value="0.02">Zinc/Planchas (+2%)</option>
+                        <option value="0.07">Hormigón (+7%)</option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Región</Form.Label>
+                      <Form.Select name="region" value={formData.region} onChange={handleChange}>
+                        <option value="5000">RM ($5.000)</option>
+                        <option value="9000">Norte ($9.000)</option>
+                        <option value="10000">Sur ($10.000)</option>
+                        <option value="15000">Austral ($15.000)</option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Complejidad instalación</Form.Label>
+                      <Form.Select name="complejidad" value={formData.complejidad} onChange={handleChange}>
+                        <option value="0">Baja (0%)</option>
+                        <option value="0.08">Media (+8%)</option>
+                        <option value="0.15">Alta (+15%)</option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Subsidio</Form.Label>
+                      <Form.Select name="subsidio" value={formData.subsidio} onChange={handleChange}>
+                        <option value="0">Sin subsidio (0%)</option>
+                        <option value="-0.08">Residencial (-8%)</option>
+                        <option value="-0.05">Pyme (-5%)</option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                </Row>
+                
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Método de envío</Form.Label>
+                      <Form.Select name="metodoEnvio" value={formData.metodoEnvio} onChange={handleChange}>
+                        <option value="1.0">Estándar (x1.00)</option>
+                        <option value="1.2">Exprés (x1.20)</option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Garantía</Form.Label>
+                      <Form.Select name="garantia" value={formData.garantia} onChange={handleChange}>
+                        <option value="0.02">12 meses (+2%)</option>
+                        <option value="0.04">24 meses (+4%)</option>
+                        <option value="0.06">36 meses (+6%)</option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                </Row>
+                
+                <hr className="my-3" />
+
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Plan de pago</Form.Label>
+                      <Form.Select name="planPago" value={formData.planPago} onChange={handleChange}>
+                        <option value="0-1">Contado (Tasa 0%)</option>
+                        <option value="0.012-6">6 cuotas (Tasa 1.2%)</option>
+                        <option value="0.011-12">12 cuotas (Tasa 1.1%)</option>
+                        <option value="0.01-24">24 cuotas (Tasa 1.0%)</option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Tipo de pie</Form.Label>
+                      <Form.Select name="tipoPie" value={formData.tipoPie} onChange={handleChange}>
+                        <option value="porcentaje">Porcentaje</option>
+                        <option value="monto">Monto fijo</option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Form.Group className="mb-3">
                   <Form.Label>Valor de pie</Form.Label>
-                  <Form.Control type="number" value={valorPie} onChange={(e) => setValorPie(Number(e.target.value))} />
-                </Col>
-                <Col>
-                  <Form.Label>Tipo de pie</Form.Label>
-                  <Form.Select value={tipoPie} onChange={(e) => setTipoPie(e.target.value)}>
-                    <option value="porcentaje">Porcentaje (%)</option>
-                    <option value="monto">Monto fijo ($)</option>
-                  </Form.Select>
-                </Col>
-              </Row>
+                  <InputGroup>
+                    <InputGroup.Text>
+                      {formData.tipoPie === 'porcentaje' ? '%' : '$'}
+                    </InputGroup.Text>
+                    <Form.Control type="number" min="0" name="valorPie" value={formData.valorPie} onChange={handleChange} />
+                  </InputGroup>
+                  <Form.Text>
+                    {formData.tipoPie === 'porcentaje' ? 'Si es porcentaje, 10 = 10%.' : 'Ingrese un monto fijo en CLP.'}
+                  </Form.Text>
+                </Form.Group>
 
-              <Button variant="secondary" onClick={handleReiniciar} className="me-2">Reiniciar</Button> {/* [cite: 112] */}
-              <Button variant="primary" disabled>Copiar resumen</Button> {/* [cite: 113] */}
-
-            </Form>
+                <Row className="mt-4">
+                  <Col>
+                    <Button variant="outline-secondary" type="button" onClick={handleReset}>
+                      Reiniciar
+                    </Button>
+                  </Col>
+                  <Col className="text-end">
+                    <Button variant="outline-primary" type="button" onClick={handleCopy}>
+                      {copied ? '¡Copiado!' : 'Copiar resumen'}
+                    </Button>
+                  </Col>
+                </Row>
+              </Form>
+            </Card.Body>
           </Card>
         </Col>
 
         {/* --- Columna Derecha: Resumen --- */}
         <Col xs={12} lg={6}>
-          <Card className="p-4 shadow-sm">
-            <h3>Resumen</h3>
-            {/* Advertencia [cite: 92] */}
-            {(potenciaEstimada > 7 && cantidadBaterias === 0) && (
-              <Alert variant="warning">
-                Recomendado considerar almacenamiento para estabilidad del sistema.
-              </Alert>
-            )}
+          <Card className="shadow-sm border-0 h-100">
+            <Card.Body className="p-4">
+              <Card.Title as="h5" className="mb-3">Resumen</Card.Title>
 
-            <Table striped bordered hover> {/* [cite: 109] */}
-              <tbody>
-                <tr>
-                  <td>Potencia estimada (kW)</td>
-                  <td>{potenciaEstimada.toFixed(2)} kW</td>
-                </tr>
-                <tr>
-                  <td>Subtotal equipos</td>
-                  <td>{formatCurrency(resultados.subtotalEquipos)}</td>
-                </tr>
-                <tr>
-                  <td>Recargo techo</td>
-                  <td>{formatCurrency(resultados.recargoTecho)}</td>
-                </tr>
-                <tr>
-                  <td>Subsidio</td>
-                  <td className="text-danger">-{formatCurrency(resultados.descuentoSubsidio)}</td>
-                </tr>
-                <tr>
-                  <td>Instalación final</td>
-                  <td>{formatCurrency(resultados.instalacionFinal)}</td>
-                </tr>
-                <tr>
-                  <td>IVA 19%</td>
-                  <td>{formatCurrency(resultados.iva)}</td>
-                </tr>
-                <tr>
-                  <td>Envío</td>
-                  <td>{formatCurrency(resultados.costoEnvio)}</td>
-                </tr>
-                <tr>
-                  <td>Garantía</td>
-                  <td>{formatCurrency(resultados.costoGarantia)}</td>
-                </tr>
-                <tr className="fw-bold">
-                  <td>Total antes de financiar</td>
-                  <td>{formatCurrency(resultados.totalAntesFinanciar)}</td>
-                </tr>
-                <tr>
-                  <td>Pie</td>
-                  <td>{formatCurrency(resultados.pieCalculado)}</td>
-                </tr>
-                <tr>
-                  <td>Interés total</td>
-                  <td>$—</td>
-                </tr>
-                <tr>
-                  <td>Cuota</td>
-                  <td>$—</td>
-                </tr>
-                <tr className="fw-bold table-primary">
-                  <td>Total final</td>
-                  <td>{formatCurrency(resultados.totalFinal)}</td>
-                </tr>
-              </tbody>
-            </Table>
-            <small className="text-muted">Valores referenciales para el prototipo.</small>
+              {results.advertencia && (
+                <Alert variant="warning" className="small">
+                  <b>Advertencia:</b> Potencia estimada ({results.potenciaEstimada.toFixed(2)} kW) es alta. Se recomienda considerar almacenamiento (baterías) para estabilidad del sistema.
+                </Alert>
+              )}
+              
+              <Table striped bordered responsive className="align-middle">
+                <tbody>
+                  <tr>
+                    <td>Potencia estimada (kW)</td>
+                    <td className="text-end">{results.potenciaEstimada.toFixed(2)} kW</td>
+                  </tr>
+                  <tr>
+                    <td>Subtotal equipos</td>
+                    <td className="text-end">{formatCurrency(results.subtotalEquipos)}</td>
+                  </tr>
+                  <tr>
+                    <td>Recargo techo</td>
+                    <td className="text-end">{formatCurrency(results.recargoTecho)}</td>
+                  </tr>
+                  <tr>
+                    <td>Subsidio</td>
+                    <td className="text-end text-danger">{formatCurrency(results.montoSubsidio)}</td>
+                  </tr>
+                  <tr>
+                    <td>Instalación final</td>
+                    <td className="text-end">{formatCurrency(results.instalacionFinal)}</td>
+                  </tr>
+                  <tr>
+                    <td>IVA 19%</td>
+                    <td className="text-end">{formatCurrency(results.iva)}</td>
+                  </tr>
+                  <tr>
+                    <td>Envío</td>
+                    <td className="text-end">{formatCurrency(results.costoEnvioFinal)}</td>
+                  </tr>
+                  <tr>
+                    <td>Garantía</td>
+                    <td className="text-end">{formatCurrency(results.costoGarantia)}</td>
+                  </tr>
+                  <tr className="fw-bold table-light">
+                    <td>Total antes de financiar</td>
+                    <td className="text-end">{formatCurrency(results.totalAntesFinanciar)}</td>
+                  </tr>
+                  <tr>
+                    <td>Pie</td>
+                    <td className="text-end">{formatCurrency(results.montoPie)}</td>
+                  </tr>
+                  <tr>
+                    <td>Interés total</td>
+                    <td className="text-end">{formatCurrency(results.interesTotal)}</td>
+                  </tr>
+                  <tr>
+                    <td>Cuota ({formData.planPago.split('-')[1]} meses)</td>
+                    <td className="text-end">{formatCurrency(results.cuotaMensual)}</td>
+                  </tr>
+                  <tr className="fw-bold table-warning">
+                    <td className="fs-5">Total final</td>
+                    <td className="text-end fs-5">{formatCurrency(results.totalFinal)}</td>
+                  </tr>
+                </tbody>
+              </Table>
+              <p className="text-muted small mt-3">
+                Valores referenciales para el prototipo.
+              </p>
+            </Card.Body>
           </Card>
         </Col>
-
       </Row>
     </Container>
   );
 }
 
-export default CalculadoraIntegral;
+export default CalculadoraDemo;
