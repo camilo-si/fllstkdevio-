@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-
+import { getFirestore, setLogLevel } from 'firebase/firestore';
+import { signInWithCustomToken, signInAnonymously } from 'firebase/auth';
 // ------------------------------------------------------------------
 // 1. CONFIGURACIÓN DE FIREBASE
 // Pega aquí tus credenciales reales de la consola de Firebase.
@@ -31,6 +31,21 @@ export const db = getFirestore(app);
 // Las dejo por si acaso tu código antiguo las usa, pero recomiendo
 // usar colecciones directas como 'servicios' o 'planes'.
 // ------------------------------------------------------------------
+
+export const initializeFirebase = async (firebaseConfig, initialAuthToken, authInstance, dbInstance, setError) => {
+    try {
+        if (!authInstance.currentUser) {
+             if (initialAuthToken) {
+                await signInWithCustomToken(authInstance, initialAuthToken);
+            } else {
+                await signInAnonymously(authInstance);
+            }
+        }
+    } catch (error) {
+        console.error("Error inicializando:", error);
+        if (setError) setError(error.message);
+    }
+};
 
 /**
  * Obtiene la ruta para colecciones. 

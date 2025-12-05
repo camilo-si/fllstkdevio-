@@ -1,33 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, Button, Alert, Col, Row } from 'react-bootstrap';
-// 1. IMPORTACIÓN CORREGIDA: Solo necesitamos 'db'
-import { db } from '../utils/firebaseConfig';
+import { db, getPublicDataCollectionPath } from '../utils/firebaseConfig';
 import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
+
+/* global __app_id */ 
 
 /**
  * Componente Modal para crear o editar un Servicio.
+ * Reutiliza la lógica de Firebase para interactuar con la colección 'servicios'.
+ * * @param {object} props
+ * @param {object | null} props.servicioInicial - Datos del servicio a editar, o null/objeto vacío para crear.
+ * @param {boolean} props.showModal - Controla la visibilidad del modal.
+ * @param {function} props.onClose - Cierra el modal y resetea el estado.
  */
 function FormularioServicioModal({ servicioInicial = {}, showModal, onClose }) {
     
-    // Nombre de la colección (Igual que en AdminServicios.js)
-    const COLLECTION_NAME = 'servicios';
-
-    // Estado local del formulario
+    // Sincroniza el estado local del formulario
     const [formData, setFormData] = useState({
-        id: null, 
-        nombre: '', 
-        descripcion: '', 
-        precioBase: 0,
-        estado: 'Activo' 
+        id: servicioInicial?.id || null, 
+        nombre: servicioInicial?.nombre || '', 
+        descripcion: servicioInicial?.descripcion || '', 
+        precioBase: servicioInicial?.precioBase || 0,
+        estado: servicioInicial?.estado || 'Activo' 
     });
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    
-    // Determinamos si es modo edición si hay un ID válido
-    const isEditMode = !!(servicioInicial && servicioInicial.id);
+    const isEditMode = !!formData.id;
 
-    // Sincronizar estado cuando abre el modal
+    // Sincroniza el estado local del formulario cuando servicioInicial cambia
     useEffect(() => {
         if (servicioInicial) {
             setFormData({
@@ -38,13 +39,18 @@ function FormularioServicioModal({ servicioInicial = {}, showModal, onClose }) {
                 estado: servicioInicial.estado || 'Activo',
             });
         } else {
-            // Resetear si no hay datos iniciales
             setFormData({
                 id: null, nombre: '', descripcion: '', precioBase: 0, estado: 'Activo'
             });
         }
         setError(null);
     }, [servicioInicial, showModal]);
+
+    // Función para obtener la ruta de la colección
+    const getServiciosCollectionPath = () => {
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        return getPublicDataCollectionPath(appId, 'servicios');
+    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -69,6 +75,15 @@ function FormularioServicioModal({ servicioInicial = {}, showModal, onClose }) {
         };
 
         try {
+            // Obtenemos la ruta correcta de la colección usando tu función existente
+            const COLLECTION_NAME = getServiciosCollectionPath();
+
+            // -----------------------------------------------------
+            // 1. INTEGRACIÓN DEL TIEMPO DE CARGA (DELAY ARTIFICIAL)
+            // Esto pausará la ejecución por 2 segundos (2000 ms)
+            // -----------------------------------------------------
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
             // 2. LÓGICA DE GUARDADO SIMPLIFICADA
             if (id) {
                 // MODO ACTUALIZAR
@@ -98,83 +113,80 @@ function FormularioServicioModal({ servicioInicial = {}, showModal, onClose }) {
             <Modal.Header closeButton>
                 <Modal.Title>{isEditMode ? 'Editar Servicio' : 'Crear Nuevo Servicio'}</Modal.Title>
             </Modal.Header>
-            
             <Form onSubmit={handleSubmit}>
                 <Modal.Body>
                     {error && <Alert variant="danger">{error}</Alert>}
                     
-                    {/* Fila 1: Nombre */}
+                    {/* Nombre del Servicio */}
                     <Form.Group className="mb-3">
                         <Form.Label htmlFor="nombre">Nombre del Servicio</Form.Label>
                         <Form.Control 
                             type="text" 
+                            id="nombre" 
                             name="nombre" 
                             value={formData.nombre} 
                             onChange={handleChange} 
-                            placeholder="Ej. Instalación de Paneles Solares"
                             required 
                             autoFocus
                         />
                     </Form.Group>
 
-                    {/* Fila 2: Descripción */}
+                    {/* Descripción */}
                     <Form.Group className="mb-3">
                         <Form.Label htmlFor="descripcion">Descripción</Form.Label>
                         <Form.Control 
                             as="textarea" 
                             rows={3}
+                            id="descripcion" 
                             name="descripcion" 
                             value={formData.descripcion} 
                             onChange={handleChange} 
-                            placeholder="Describe los detalles del servicio..."
                             required 
                         />
                     </Form.Group>
                     
-                    {/* Fila 3: Precio y Estado */}
                     <Row>
-                        <Col md={6}>
-                            <Form.Group className="mb-3">
-                                <Form.Label htmlFor="precioBase">Precio Base ($)</Form.Label>
-                                <Form.Control 
-                                    type="number" 
-                                    name="precioBase" 
-                                    value={formData.precioBase} 
-                                    onChange={handleChange} 
-                                    min="0"
-                                    step="0.01"
-                                    required 
-                                />
-                            </Form.Group>
-                        </Col>
+                        {/* Precio Base */}
+                        <Form.Group as={Col} md={6} className="mb-3">
+                            <Form.Label htmlFor="precioBase">Precio Base ($)</Form.Label>
+                            <Form.Control 
+                                type="number" 
+                                id="precioBase" 
+                                name="precioBase" 
+                                value={formData.precioBase} 
+                                onChange={handleChange} 
+                                min="0"
+                                step="0.01"
+                                required 
+                            />
+                        </Form.Group>
                         
-                        <Col md={6}>
-                            <Form.Group className="mb-3">
-                                <Form.Label htmlFor="estado">Estado</Form.Label>
-                                <Form.Select
-                                    name="estado" 
-                                    value={formData.estado} 
-                                    onChange={handleChange}
-                                >
-                                    <option value="Activo">Activo</option>
-                                    <option value="Inactivo">Inactivo</option>
-                                </Form.Select>
-                            </Form.Group>
-                        </Col>
+                        {/* Estado */}
+                        <Form.Group as={Col} md={6} className="mb-3">
+                            <Form.Label htmlFor="estado">Estado</Form.Label>
+                            <Form.Select
+                                id="estado" 
+                                name="estado" 
+                                value={formData.estado} 
+                                onChange={handleChange}
+                            >
+                                <option value="Activo">Activo</option>
+                                <option value="Inactivo">Inactivo</option>
+                            </Form.Select>
+                        </Form.Group>
                     </Row>
                 </Modal.Body>
-
                 <Modal.Footer>
                     <Button variant="secondary" onClick={onClose} disabled={loading}>
-                        Cancelar
+                        Cerrar
                     </Button>
                     <Button variant="primary" type="submit" disabled={loading}>
                         {loading ? (
                             <>
                                 <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
                                 Guardando...
-                            </>
-                        ) : (
+                            </> 
+                        ) : ( 
                             isEditMode ? 'Guardar Cambios' : 'Crear Servicio'
                         )}
                     </Button>

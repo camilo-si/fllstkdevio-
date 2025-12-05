@@ -1,69 +1,87 @@
-import React, { useEffect, useState } from 'react';
-import { db, auth } from '../utils/firebaseConfig'; // Asumimos que db y auth ya vienen inicializados
-import { collection, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
+import React from 'react';
+import { db, auth, getPublicDataCollectionPath } from '../utils/firebaseConfig';
 import FormularioServicioModal from './FormularioServicioModal'; 
+import { collection, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
+
+/* global __app_id, __firebase_config, __initial_auth_token */
+
+// --- DATOS DE EJEMPLO (Se muestran si no hay datos en Firebase) ---
+const DATOS_EJEMPLO = [
+    { id: 'mock-1', nombre: 'Instalación Residencial 3kW', descripcion: 'Sistema ON-Grid llave en mano para hogares.', precioBase: 2990000, estado: 'Activo' },
+    { id: 'mock-2', nombre: 'Limpieza de Paneles', descripcion: 'Limpieza técnica con agua desmineralizada (hasta 10 paneles).', precioBase: 45000, estado: 'Activo' },
+    { id: 'mock-3', nombre: 'Tramitación TE4', descripcion: 'Gestión y declaración SEC para Netbilling.', precioBase: 180000, estado: 'Activo' },
+    { id: 'mock-4', nombre: 'Diagnóstico en Terreno', descripcion: 'Visita técnica para evaluación de factibilidad (RM).', precioBase: 35000, estado: 'Inactivo' },
+];
 
 function AdminServicios() {
-    // Estado
-    const [servicios, setServicios] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [showModal, setShowModal] = useState(false);
-    const [currentService, setCurrentService] = useState(null); 
+    // Estado para almacenar los servicios
+    const [servicios, setServicios] = React.useState([]);
+    const [loading, setLoading] = React.useState(true);
+    const [error, setError] = React.useState(null);
 
-    // --- CORRECCIÓN CLAVE ---
-    // En lugar de usar funciones complejas para la ruta, definimos la colección directamente.
-    // Si tu colección en Firebase se llama "servicios", ponlo tal cual:
-    const COLLECTION_NAME = "servicios"; 
+    // Estado para el modal de Crear/Editar servicio
+    const [showModal, setShowModal] = React.useState(false);
+    const [currentService, setCurrentService] = React.useState(null); 
 
-    // 1. Carga de datos en tiempo real
-    useEffect(() => {
-        setLoading(true);
+ //   // 1. Inicialización de Firebase y Auth
+   React.useEffect(() => {
+        //const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        //const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        //const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        //
+        //initializeFirebase(firebaseConfig, initialAuthToken, auth, db, setError);
+    }, []);
+
+    // Ruta de la colección
+    const getServiciosCollectionPath = () => {
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        return getPublicDataCollectionPath(appId, 'servicios');
+    };
+
+    // 2. Carga y escucha en tiempo real
+    React.useEffect(() => {
+        if (!db) return;
         
-        // Verificación de seguridad
-        if (!db) {
-            console.error("Firebase DB no está inicializado.");
-            setError("Error de conexión con la base de datos.");
+        const path = getServiciosCollectionPath();
+        const serviciosColRef = collection(db, path);
+
+        const unsubscribe = onSnapshot(serviciosColRef, (snapshot) => {
+            const fetchedServicios = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            setServicios(fetchedServicios);
             setLoading(false);
+        }, (err) => {
+            console.error("Error al escuchar servicios:", err);
+            // No mostramos error en UI para que se vean los datos de ejemplo si falla la carga
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [db]);
+
+    // 3. Eliminar un servicio
+    const handleDelete = async (id) => {
+        // Evitar borrar datos de ejemplo
+        if (id.startsWith('mock-')) {
+            alert("No puedes eliminar un dato de ejemplo. Crea un servicio real primero.");
             return;
         }
 
-        try {
-            const serviciosColRef = collection(db, COLLECTION_NAME);
-
-            // Escuchamos cambios en tiempo real
-            const unsubscribe = onSnapshot(serviciosColRef, (snapshot) => {
-                const fetchedServicios = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-                
-                console.log("Servicios cargados:", fetchedServicios); // Para depuración
-                setServicios(fetchedServicios);
-                setLoading(false);
-            }, (err) => {
-                console.error("Error en onSnapshot:", err);
-                setError("No tienes permisos o la conexión falló.");
-                setLoading(false);
-            });
-
-            return () => unsubscribe();
-        } catch (err) {
-            console.error("Error general al intentar conectar:", err);
-            setError("Error crítico al cargar servicios.");
-            setLoading(false);
+        if (!window.confirm("¿Está seguro de que desea eliminar este servicio?")) {
+            return;
         }
-    }, []);
 
-    // 2. Eliminar servicio
-    const handleDelete = async (id) => {
-        if (!window.confirm("¿Está seguro de que desea eliminar este servicio?")) return;
-
+        setLoading(true);
         try {
-            await deleteDoc(doc(db, COLLECTION_NAME, id));
+            const path = getServiciosCollectionPath();
+            await deleteDoc(doc(db, path, id));
         } catch (err) {
-            console.error("Error al eliminar:", err);
-            alert("Error al eliminar el servicio");
+            console.error("Error al eliminar el servicio:", err);
+            setError("Error al eliminar el servicio.");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -74,6 +92,10 @@ function AdminServicios() {
     };
 
     const openEditModal = (servicio) => {
+        if (servicio.id.startsWith('mock-')) {
+            alert("Estás viendo un dato de ejemplo. Para editar, primero crea un registro real.");
+            return;
+        }
         setCurrentService(servicio);
         setShowModal(true);
     };
@@ -83,34 +105,21 @@ function AdminServicios() {
         setCurrentService(null);
     };
 
-    // Renderizado Condicional
-    if (loading) {
-        return (
-            <div className="content-wrapper p-5 text-center">
-                <div className="spinner-border text-primary" role="status">
-                    <span className="sr-only">Cargando...</span>
-                </div>
-                <p className="mt-2">Cargando servicios...</p>
-            </div>
-        );
-    }
+    // --- LÓGICA DE VISUALIZACIÓN ---
+    // Si hay datos reales, úsalos. Si no, usa los de ejemplo.
+    const listaParaMostrar = (servicios.length > 0) ? servicios : DATOS_EJEMPLO;
+    const esModoEjemplo = (servicios.length === 0);
 
-    if (error) {
-        return (
-            <div className="content-wrapper p-5 text-center">
-                <div className="alert alert-danger">
-                    <i className="fas fa-exclamation-triangle"></i> {error}
-                </div>
-            </div>
-        );
-    }
+    if (loading && servicios.length === 0) return <div className="p-4 text-center"><i className="fas fa-spinner fa-spin"></i> Cargando servicios...</div>;
 
     return (
         <div className="content-wrapper">
             <section className="content-header">
                 <div className="container-fluid">
                     <div className="row mb-2">
-                        <div className="col-sm-6"><h1>Gestión de Servicios</h1></div>
+                        <div className="col-sm-6">
+                            <h1>Gestión de Servicios</h1>
+                        </div>
                         <div className="col-sm-6">
                             <ol className="breadcrumb float-sm-right">
                                 <li className="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
@@ -123,58 +132,77 @@ function AdminServicios() {
 
             <section className="content">
                 <div className="container-fluid">
-                    <div className="card">
-                        <div className="card-header">
-                            <h3 className="card-title">Listado de Servicios</h3>
-                            <div className="card-tools">
-                                <button className="btn btn-primary btn-sm" onClick={openCreateModal}>
-                                    <i className="fas fa-plus"></i> Nuevo Servicio
-                                </button>
-                            </div>
+                    {/* Alerta si estamos viendo datos de ejemplo */}
+                    {esModoEjemplo && (
+                        <div className="alert alert-info alert-dismissible">
+                            <button type="button" className="close" data-dismiss="alert" aria-hidden="true">×</button>
+                            <h5><i className="icon fas fa-info"></i> ¡Modo Demostración!</h5>
+                            Actualmente no hay datos en la base de datos. Estás viendo <b>datos de ejemplo</b>.
                         </div>
-                        
-                        <div className="card-body p-0">
-                            <table className="table table-striped projects">
-                                <thead>
-                                    <tr>
-                                        <th>Nombre</th>
-                                        <th>Descripción</th>
-                                        <th>Precio</th>
-                                        <th>Estado</th>
-                                        <th className="text-center">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {servicios.length > 0 ? (
-                                        servicios.map(servicio => (
-                                            <tr key={servicio.id}>
-                                                <td>{servicio.nombre}</td>
-                                                <td>{servicio.descripcion}</td>
-                                                <td>${servicio.precioBase}</td>
-                                                <td>
-                                                    <span className={`badge ${servicio.estado === 'Activo' ? 'badge-success' : 'badge-danger'}`}>
-                                                        {servicio.estado}
-                                                    </span>
-                                                </td>
-                                                <td className="project-actions text-center">
-                                                    <button className="btn btn-info btn-sm mr-1" onClick={() => openEditModal(servicio)}>
-                                                        <i className="fas fa-pencil-alt"></i>
-                                                    </button>
-                                                    <button className="btn btn-danger btn-sm" onClick={() => handleDelete(servicio.id)}>
-                                                        <i className="fas fa-trash"></i>
-                                                    </button>
-                                                </td>
+                    )}
+
+                    <div className="row">
+                        <div className="col-12">
+                            <div className="card">
+                                <div className="card-header">
+                                    <h3 className="card-title">Listado de Servicios</h3>
+                                    <div className="card-tools">
+                                        <button className="btn btn-primary" onClick={openCreateModal}>
+                                            <i className="fas fa-plus"></i> Crear Nuevo Servicio
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div className="card-body table-responsive p-0">
+                                    <table className="table table-hover text-nowrap">
+                                        <thead>
+                                            <tr>
+                                                <th>Nombre</th>
+                                                <th>Descripción</th>
+                                                <th>Precio Base</th>
+                                                <th>Estado</th>
+                                                <th className="text-center" style={{ width: '150px' }}>Acciones</th>
                                             </tr>
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td colSpan="5" className="text-center py-4">
-                                                No hay servicios registrados. ¡Crea uno nuevo!
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
+                                        </thead>
+                                        <tbody>
+                                            {listaParaMostrar.map(servicio => (
+                                                <tr key={servicio.id}>
+                                                    <td><strong>{servicio.nombre}</strong></td>
+                                                    <td style={{ maxWidth: '300px', whiteSpace: 'normal' }}>
+                                                        {servicio.descripcion}
+                                                    </td>
+                                                    <td>
+                                                        {servicio.precioBase 
+                                                            ? `$${Number(servicio.precioBase).toLocaleString('es-CL')}` 
+                                                            : 'A cotizar'}
+                                                    </td>
+                                                    <td>
+                                                        <span className={`badge ${servicio.estado === 'Activo' ? 'bg-success' : 'bg-secondary'}`}>
+                                                            {servicio.estado}
+                                                        </span>
+                                                    </td>
+                                                    <td className="text-center">
+                                                        <button 
+                                                            className="btn btn-sm btn-warning mr-1" 
+                                                            title="Editar"
+                                                            onClick={() => openEditModal(servicio)}
+                                                        >
+                                                            <i className="fas fa-edit"></i>
+                                                        </button>
+                                                        <button 
+                                                            className="btn btn-sm btn-danger" 
+                                                            title="Eliminar"
+                                                            onClick={() => handleDelete(servicio.id)}
+                                                        >
+                                                            <i className="fas fa-trash"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

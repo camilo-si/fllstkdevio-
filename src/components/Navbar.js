@@ -22,6 +22,7 @@ function AppNavbar() {
             <Nav.Link href="#testimonios">Testimonios</Nav.Link>
             <Nav.Link href="#faq">FAQ</Nav.Link>
             <Nav.Link href="#contacto">Contacto</Nav.Link>
+            <Nav.Link href="dashboard">Dashboard</Nav.Link>
           </Nav>
         </Navbar.Collapse>
       </Container>
