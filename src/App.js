@@ -16,6 +16,8 @@ import Footer from './components/Footer';
 
 // 2. COMPONENTES DE ADMINISTRACIÓN
 import DashboardLayout from './components/Dashboard/DashboardLayout'; 
+// A. IMPORTAMOS EL NUEVO COMPONENTE AQUÍ 👇
+import DashboardHome from './components/Dashboard/DashboardHome'; 
 import AdminServicios from './components/Dashboard/AdminServicios'; 
 import AdminPlanes from './components/Dashboard/AdminPlanes';       
 
@@ -39,19 +41,18 @@ function App() {
      <BrowserRouter>
        <Routes>
          
-         {/* RUTA PÚBLICA (Landing Page) */}
+         {/* RUTA PÚBLICA */}
          <Route path="/" element={<PublicApp />} />
          
          {/* RUTA PRIVADA (Dashboard) */}
-         {/* CAMBIO IMPORTANTE: Cambiamos "/admin" por "/dashboard" */}
          <Route path="/dashboard" element={<DashboardLayout />}>
            
-           {/* Ruta por defecto del dashboard (Index) */}
-           <Route index element={<h2>Bienvenido al Panel de Control</h2>} />
+            {/* B. CORREGIMOS ESTA LÍNEA 👇: Usamos el componente en vez del texto */}
+            <Route index element={<DashboardHome />} />
 
-           {/* Sub-rutas */}
-           <Route path="servicios" element={<AdminServicios />} /> 
-           <Route path="planes" element={<AdminPlanes />} />
+            {/* Sub-rutas */}
+            <Route path="servicios" element={<AdminServicios />} /> 
+            <Route path="planes" element={<AdminPlanes />} />
            
          </Route>
          

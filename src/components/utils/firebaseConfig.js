@@ -1,74 +1,51 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithCustomToken, signInAnonymously } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator, setLogLevel } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
-// Variables globales para almacenar las instancias de Firebase
-// Se inicializan como null y se asignan en la función initializeFirebase.
-let app = null;
-let db = null;
-let auth = null;
-
-/**
- * Inicializa la aplicación Firebase, Firestore y el servicio de autenticación.
- * Realiza el inicio de sesión inicial con el token personalizado o de forma anónima.
- * @param {object} firebaseConfig - La configuración de Firebase.
- * @param {string | null} initialAuthToken - Token de autenticación personalizado.
- * @param {object} authInstance - Referencia global de auth.
- * @param {object} dbInstance - Referencia global de db.
- * @param {function} setError - Función para establecer mensajes de error en el componente.
- */
-export const initializeFirebase = async (firebaseConfig, initialAuthToken, authInstance, dbInstance, setError) => {
-    try {
-        if (!app) {
-            // 1. Inicializar la aplicación
-            app = initializeApp(firebaseConfig);
-            
-            // 2. Inicializar servicios
-            auth = getAuth(app);
-            db = getFirestore(app);
-            
-            // Opcional: Establecer el nivel de log para depuración de Firestore
-            setLogLevel('debug'); 
-
-            // 3. Autenticación inicial
-            if (initialAuthToken) {
-                await signInWithCustomToken(auth, initialAuthToken);
-            } else {
-                await signInAnonymously(auth);
-            }
-        }
-    } catch (error) {
-        console.error("Error al inicializar o autenticar Firebase:", error);
-        if (setError) {
-            setError(`Fallo en la conexión de Firebase: ${error.message}`);
-        }
-    }
+// ------------------------------------------------------------------
+// 1. CONFIGURACIÓN DE FIREBASE
+// Pega aquí tus credenciales reales de la consola de Firebase.
+// Si usas variables de entorno (.env), usa process.env.REACT_APP_...
+// ------------------------------------------------------------------
+const firebaseConfig = {
+    apiKey: "TU_API_KEY_AQUI",             // Ej: "AIzaSyD..."
+    authDomain: "TU_PROYECTO.firebaseapp.com",
+    projectId: "TU_PROYECTO_ID",
+    storageBucket: "TU_PROYECTO.appspot.com",
+    messagingSenderId: "TUS_NUMEROS",
+    appId: "TU_APP_ID"
 };
 
+// 2. INICIALIZACIÓN INMEDIATA
+// Inicializamos la app una sola vez al cargar el archivo
+const app = initializeApp(firebaseConfig);
+
+// 3. EXPORTACIÓN DE SERVICIOS
+// Estas constantes ya están listas para usarse en cualquier componente
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+
+
+// ------------------------------------------------------------------
+// 4. FUNCIONES DE UTILIDAD (Opcionales)
+// Las dejo por si acaso tu código antiguo las usa, pero recomiendo
+// usar colecciones directas como 'servicios' o 'planes'.
+// ------------------------------------------------------------------
+
 /**
- * Obtiene la ruta para colecciones de datos públicos.
- * Convención: /artifacts/{appId}/public/data/{collectionName}
- * @param {string} appId - El ID de la aplicación.
- * @param {string} collectionName - El nombre de la colección.
- * @returns {string} La ruta completa de la colección.
+ * Obtiene la ruta para colecciones. 
+ * NOTA: Si tu base de datos es simple, puedes ignorar esto y usar 
+ * simplemente el nombre de la colección (ej: "servicios") en tus componentes.
  */
 export const getPublicDataCollectionPath = (appId, collectionName) => {
-    return `artifacts/${appId}/public/data/${collectionName}`;
+    // Simplificamos esto para que devuelva la colección directa si no usas "artifacts"
+    // Si realmente usas la estructura compleja, descomenta la línea de abajo:
+    // return `artifacts/${appId}/public/data/${collectionName}`;
+    return collectionName; 
 };
 
-/**
- * Obtiene la ruta para colecciones de datos privados del usuario.
- * Convención: /artifacts/{appId}/users/{userId}/{collectionName}
- * NOTA: Esta función es un ejemplo. 'userId' debe obtenerse de 'auth.currentUser.uid'.
- * @param {string} appId - El ID de la aplicación.
- * @param {string} userId - El ID del usuario actual.
- * @param {string} collectionName - El nombre de la colección.
- * @returns {string} La ruta completa de la colección.
- */
 export const getPrivateDataCollectionPath = (appId, userId, collectionName) => {
-    return `artifacts/${appId}/users/${userId}/${collectionName}`;
+    return `users/${userId}/${collectionName}`;
 };
 
-// Exportar las instancias después de que se inicialicen
-// Nota: En React, estas instancias se usan en los `useEffect` después de llamar a `initializeFirebase`.
-export { db, auth };
+export default app;

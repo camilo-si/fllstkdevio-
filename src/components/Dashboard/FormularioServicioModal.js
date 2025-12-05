@@ -1,49 +1,50 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, Button, Alert, Col, Row } from 'react-bootstrap';
-import { db, getPublicDataCollectionPath } from '../utils/firebaseConfig';
+// 1. IMPORTACIÓN CORREGIDA: Solo necesitamos 'db'
+import { db } from '../utils/firebaseConfig';
 import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
-
-/* global __app_id */ 
 
 /**
  * Componente Modal para crear o editar un Servicio.
- * Reutiliza la lógica de Firebase para interactuar con la colección 'servicios'.
- * * @param {object} props
- * @param {object | null} props.servicioInicial - Datos del servicio a editar, o null/objeto vacío para crear.
- * @param {boolean} props.showModal - Controla la visibilidad del modal.
- * @param {function} props.onClose - Cierra el modal y resetea el estado.
  */
 function FormularioServicioModal({ servicioInicial = {}, showModal, onClose }) {
     
-    // Sincroniza el estado local del formulario
+    // Nombre de la colección (Igual que en AdminServicios.js)
+    const COLLECTION_NAME = 'servicios';
+
+    // Estado local del formulario
     const [formData, setFormData] = useState({
-        id: servicioInicial.id || null, 
-        nombre: servicioInicial.nombre || '', 
-        descripcion: servicioInicial.descripcion || '', 
-        precioBase: servicioInicial.precioBase || 0,
-        estado: servicioInicial.estado || 'Activo' 
+        id: null, 
+        nombre: '', 
+        descripcion: '', 
+        precioBase: 0,
+        estado: 'Activo' 
     });
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const isEditMode = !!formData.id;
+    
+    // Determinamos si es modo edición si hay un ID válido
+    const isEditMode = !!(servicioInicial && servicioInicial.id);
 
-    // Sincroniza el estado local del formulario cuando servicioInicial cambia
+    // Sincronizar estado cuando abre el modal
     useEffect(() => {
-        setFormData({
-            id: servicioInicial.id || null,
-            nombre: servicioInicial.nombre || '',
-            descripcion: servicioInicial.descripcion || '',
-            precioBase: servicioInicial.precioBase || 0,
-            estado: servicioInicial.estado || 'Activo',
-        });
+        if (servicioInicial) {
+            setFormData({
+                id: servicioInicial.id || null,
+                nombre: servicioInicial.nombre || '',
+                descripcion: servicioInicial.descripcion || '',
+                precioBase: servicioInicial.precioBase || 0,
+                estado: servicioInicial.estado || 'Activo',
+            });
+        } else {
+            // Resetear si no hay datos iniciales
+            setFormData({
+                id: null, nombre: '', descripcion: '', precioBase: 0, estado: 'Activo'
+            });
+        }
         setError(null);
     }, [servicioInicial, showModal]);
-
-    const getServiciosCollectionPath = () => {
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        return getPublicDataCollectionPath(appId, 'servicios');
-    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -61,106 +62,121 @@ function FormularioServicioModal({ servicioInicial = {}, showModal, onClose }) {
         setError(null);
         setLoading(true);
 
+        // Preparamos los datos (excluyendo el ID para que no se guarde dentro del documento)
         const { id, ...dataToSave } = {
             ...formData,
-            precioBase: Number(formData.precioBase),
+            precioBase: Number(formData.precioBase), // Asegurar que sea número
         };
 
         try {
-            const path = getServiciosCollectionPath();
+            // 2. LÓGICA DE GUARDADO SIMPLIFICADA
             if (id) {
-                // Actualizar
-                const serviceDocRef = doc(db, path, id);
+                // MODO ACTUALIZAR
+                const serviceDocRef = doc(db, COLLECTION_NAME, id);
                 await updateDoc(serviceDocRef, dataToSave);
             } else {
-                // Crear
-                await addDoc(collection(db, path), {
+                // MODO CREAR
+                await addDoc(collection(db, COLLECTION_NAME), {
                     ...dataToSave,
                     fechaCreacion: new Date().toISOString()
                 });
             }
-            onClose(); // Cierra el modal al completar
+            
+            // Cerrar modal al terminar
+            onClose(); 
+            
         } catch (err) {
-            console.error("Error al guardar el servicio:", err);
-            setError(`Error al guardar el servicio: ${err.message}`);
+            console.error("Error al guardar:", err);
+            setError("Error de conexión al guardar. Inténtalo de nuevo.");
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <Modal show={showModal} onHide={onClose} centered>
+        <Modal show={showModal} onHide={onClose} centered size="lg">
             <Modal.Header closeButton>
                 <Modal.Title>{isEditMode ? 'Editar Servicio' : 'Crear Nuevo Servicio'}</Modal.Title>
             </Modal.Header>
+            
             <Form onSubmit={handleSubmit}>
                 <Modal.Body>
                     {error && <Alert variant="danger">{error}</Alert>}
                     
-                    {/* Nombre del Servicio */}
+                    {/* Fila 1: Nombre */}
                     <Form.Group className="mb-3">
                         <Form.Label htmlFor="nombre">Nombre del Servicio</Form.Label>
                         <Form.Control 
                             type="text" 
-                            id="nombre" 
                             name="nombre" 
                             value={formData.nombre} 
                             onChange={handleChange} 
+                            placeholder="Ej. Instalación de Paneles Solares"
                             required 
+                            autoFocus
                         />
                     </Form.Group>
 
-                    {/* Descripción */}
+                    {/* Fila 2: Descripción */}
                     <Form.Group className="mb-3">
                         <Form.Label htmlFor="descripcion">Descripción</Form.Label>
                         <Form.Control 
                             as="textarea" 
                             rows={3}
-                            id="descripcion" 
                             name="descripcion" 
                             value={formData.descripcion} 
                             onChange={handleChange} 
+                            placeholder="Describe los detalles del servicio..."
                             required 
                         />
                     </Form.Group>
                     
+                    {/* Fila 3: Precio y Estado */}
                     <Row>
-                        {/* Precio Base */}
-                        <Form.Group as={Col} md={6} className="mb-3">
-                            <Form.Label htmlFor="precioBase">Precio Base ($)</Form.Label>
-                            <Form.Control 
-                                type="number" 
-                                id="precioBase" 
-                                name="precioBase" 
-                                value={formData.precioBase} 
-                                onChange={handleChange} 
-                                min="0"
-                                step="0.01"
-                                required 
-                            />
-                        </Form.Group>
+                        <Col md={6}>
+                            <Form.Group className="mb-3">
+                                <Form.Label htmlFor="precioBase">Precio Base ($)</Form.Label>
+                                <Form.Control 
+                                    type="number" 
+                                    name="precioBase" 
+                                    value={formData.precioBase} 
+                                    onChange={handleChange} 
+                                    min="0"
+                                    step="0.01"
+                                    required 
+                                />
+                            </Form.Group>
+                        </Col>
                         
-                        {/* Estado */}
-                        <Form.Group as={Col} md={6} className="mb-3">
-                            <Form.Label htmlFor="estado">Estado</Form.Label>
-                            <Form.Select
-                                id="estado" 
-                                name="estado" 
-                                value={formData.estado} 
-                                onChange={handleChange}
-                            >
-                                <option value="Activo">Activo</option>
-                                <option value="Inactivo">Inactivo</option>
-                            </Form.Select>
-                        </Form.Group>
+                        <Col md={6}>
+                            <Form.Group className="mb-3">
+                                <Form.Label htmlFor="estado">Estado</Form.Label>
+                                <Form.Select
+                                    name="estado" 
+                                    value={formData.estado} 
+                                    onChange={handleChange}
+                                >
+                                    <option value="Activo">Activo</option>
+                                    <option value="Inactivo">Inactivo</option>
+                                </Form.Select>
+                            </Form.Group>
+                        </Col>
                     </Row>
                 </Modal.Body>
+
                 <Modal.Footer>
                     <Button variant="secondary" onClick={onClose} disabled={loading}>
-                        Cerrar
+                        Cancelar
                     </Button>
                     <Button variant="primary" type="submit" disabled={loading}>
-                        {loading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-save"></i>} {isEditMode ? 'Guardar Cambios' : 'Crear Servicio'}
+                        {loading ? (
+                            <>
+                                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                Guardando...
+                            </>
+                        ) : (
+                            isEditMode ? 'Guardar Cambios' : 'Crear Servicio'
+                        )}
                     </Button>
                 </Modal.Footer>
             </Form>
