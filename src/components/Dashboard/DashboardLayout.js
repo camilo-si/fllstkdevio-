@@ -1,30 +1,37 @@
 import React from 'react';
-import { Outlet } from 'react-router-dom'; // Import Outlet for nested routing
-// Importaciones corregidas
-import AppNavbar from '../Navbar'; 
-import Sidemenu from './Sidemenu'; // Fix: Corrected filename casing from './sidemenu'
-import Footer from '../Footer'; // Fix: Corrected path from './footer' to '../Footer' (main app footer)
+import { Outlet } from 'react-router-dom';
+// IMPORTANTE: Cambiamos '../Navbar' por el nuevo './DashboardNavbar'
+import DashboardNavbar from './DashboardNavbar'; 
+import Sidemenu from './Sidemenu';
+import Footer from '../Footer';
 
-// Componente de Layout para AdminLTE
 function DashboardLayout() {
     return (
-        // 1. El 'wrapper' de AdminLTE es el contenedor principal de todo
-        <div className="wrapper"> 
-            
-            {/* 2. Componentes Fijos de Navegación y Estilo */}
-            <AppNavbar /> {/* Using the actual component name from Navbar.js */}
+        <div className="wrapper">
+            {/* 1. Navbar Superior del Dashboard (con botón de menú funcional) */}
+            <DashboardNavbar />
+
+            {/* 2. Menú Lateral */}
             <Sidemenu />
 
-            {/* 3. Área de Contenido Principal (Content Wrapper) */}
+            {/* 3. Contenido Principal */}
             <div className="content-wrapper">
-                {/* Outlet renderiza los componentes de ruta anidados (AdminServicios, AdminPlanes, etc.) */}
-                <Outlet /> 
+                <div className="content-header">
+                    <div className="container-fluid">
+                       {/* Espacio para títulos o breadcrumbs si se necesita */}
+                    </div>
+                </div>
+                
+                {/* Aquí se renderizan AdminServicios, AdminPlanes, etc. */}
+                <section className="content">
+                    <div className="container-fluid">
+                        <Outlet />
+                    </div>
+                </section>
             </div>
 
             {/* 4. Footer */}
             <Footer />
-            
-            {/* 5. Otros elementos fijos del template... */}
         </div>
     );
 }
