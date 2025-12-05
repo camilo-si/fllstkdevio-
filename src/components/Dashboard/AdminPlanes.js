@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { db, auth, initializeFirebase, getPublicDataCollectionPath } from '../../utils/firebaseConfig';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDocs } from 'firebase/firestore';
+import { db, auth, initializeFirebase, getPublicDataCollectionPath } from '../utils/firebaseConfig';
+import { collection, onSnapshot, deleteDoc, doc } from 'firebase/firestore'; 
+import FormularioPlanModal from './FormularioPlanModal';
+
+/* global __app_id, __firebase_config, __initial_auth_token */ // Fix: Suppress no-undef warnings
 
 // Componente principal para la Gestión de Planes
 function AdminPlanes() {
@@ -12,14 +15,7 @@ function AdminPlanes() {
     
     // Estado para el modal de Crear/Editar
     const [showModal, setShowModal] = useState(false);
-    const [currentPlan, setCurrentPlan] = useState({ 
-        id: null, 
-        nombre: '', 
-        descripcion: '', 
-        costoMensual: 0,
-        serviciosIncluidos: [], // Array de IDs de servicios
-        estado: 'Activo'
-    });
+    const [currentPlan, setCurrentPlan] = useState(null); // Usamos null o el objeto para edición
 
     // --- RUTA DE COLECCIONES ---
     const getPlanesCollectionPath = () => {
@@ -38,11 +34,13 @@ function AdminPlanes() {
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
+        // Se pasa setError a initializeFirebase para manejar errores de conexión/autenticación
         initializeFirebase(firebaseConfig, initialAuthToken, auth, db, setError);
     }, []);
 
     // 2. Carga y escucha de Servicios (Necesarios para el formulario de Planes)
     useEffect(() => {
+        // Esta lógica es para cargar los servicios disponibles y no necesita la lógica del modal aquí
         if (!db) return;
 
         const path = getServiciosCollectionPath();
@@ -87,67 +85,8 @@ function AdminPlanes() {
         return () => unsubscribe();
     }, [db]);
 
-    // Manejar cambios en campos de texto/número
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setCurrentPlan(prev => ({ ...prev, [name]: value }));
-    };
 
-    // Manejar cambios en la selección múltiple de servicios
-    const handleServiceToggle = (serviceId) => {
-        setCurrentPlan(prev => {
-            const isIncluded = prev.serviciosIncluidos.includes(serviceId);
-            return {
-                ...prev,
-                serviciosIncluidos: isIncluded
-                    ? prev.serviciosIncluidos.filter(id => id !== serviceId) // Quitar
-                    : [...prev.serviciosIncluidos, serviceId] // Añadir
-            };
-        });
-    };
-
-    // 4. Crear o Actualizar un plan
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        
-        if (!currentPlan.nombre.trim() || currentPlan.serviciosIncluidos.length === 0) {
-            alert("El nombre y al menos un servicio son obligatorios.");
-            return;
-        }
-
-        const dataToSave = {
-            nombre: currentPlan.nombre,
-            descripcion: currentPlan.descripcion,
-            costoMensual: Number(currentPlan.costoMensual),
-            serviciosIncluidos: currentPlan.serviciosIncluidos,
-            estado: currentPlan.estado
-        };
-
-        setLoading(true);
-        try {
-            const path = getPlanesCollectionPath();
-            if (currentPlan.id) {
-                // Actualizar
-                const planDocRef = doc(db, path, currentPlan.id);
-                await updateDoc(planDocRef, dataToSave);
-            } else {
-                // Crear
-                await addDoc(collection(db, path), {
-                    ...dataToSave,
-                    fechaCreacion: new Date().toISOString()
-                });
-            }
-            setShowModal(false);
-            setCurrentPlan({ id: null, nombre: '', descripcion: '', costoMensual: 0, serviciosIncluidos: [], estado: 'Activo' });
-        } catch (err) {
-            console.error("Error al guardar el plan:", err);
-            setError("Error al guardar el plan.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // 5. Eliminar un plan
+    // 4. Eliminar un plan
     const handleDelete = async (id) => {
         if (!window.confirm("¿Está seguro de que desea eliminar este plan?")) {
             return;
@@ -167,25 +106,27 @@ function AdminPlanes() {
 
     // Funciones de control del Modal
     const openCreateModal = () => {
+        // Objeto vacío para crear
         setCurrentPlan({ id: null, nombre: '', descripcion: '', costoMensual: 0, serviciosIncluidos: [], estado: 'Activo' });
         setShowModal(true);
     };
 
     const openEditModal = (plan) => {
+        // Pasa el plan completo para edición
         setCurrentPlan(plan);
         setShowModal(true);
     };
 
     const closeModal = () => {
         setShowModal(false);
-        setCurrentPlan({ id: null, nombre: '', descripcion: '', costoMensual: 0, serviciosIncluidos: [], estado: 'Activo' });
+        setCurrentPlan(null); // Limpiar el plan actual al cerrar
     };
 
     // Utilidad para obtener nombres de servicios por ID
     const getServiceNames = (serviceIds) => {
         if (!serviciosDisponibles || serviciosDisponibles.length === 0) return 'Cargando...';
         
-        return serviceIds.map(id => {
+        return (serviceIds || []).map(id => {
             const servicio = serviciosDisponibles.find(s => s.id === id);
             return servicio ? servicio.nombre : `[ID Desconocido: ${id}]`;
         }).join(', ');
@@ -291,106 +232,14 @@ function AdminPlanes() {
                 </div>
             </section>
 
-            {/* Modal de Creación/Edición */}
+            {/* Invocación del Modal de Creación/Edición */}
             {showModal && (
-                <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
-                    <div className="modal-dialog">
-                        <div className="modal-content">
-                            <form onSubmit={handleSubmit}>
-                                <div className="modal-header">
-                                    <h5 className="modal-title">{currentPlan.id ? 'Editar Plan' : 'Crear Nuevo Plan'}</h5>
-                                    <button type="button" className="close" onClick={closeModal} aria-label="Close">
-                                        <span aria-hidden="true">&times;</span>
-                                    </button>
-                                </div>
-                                <div className="modal-body">
-                                    <div className="form-group">
-                                        <label htmlFor="nombre">Nombre del Plan</label>
-                                        <input 
-                                            type="text" 
-                                            className="form-control" 
-                                            id="nombre" 
-                                            name="nombre" 
-                                            value={currentPlan.nombre} 
-                                            onChange={handleChange} 
-                                            required 
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label htmlFor="descripcion">Descripción</label>
-                                        <textarea 
-                                            className="form-control" 
-                                            id="descripcion" 
-                                            name="descripcion" 
-                                            value={currentPlan.descripcion} 
-                                            onChange={handleChange} 
-                                            required 
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label htmlFor="costoMensual">Costo Mensual ($)</label>
-                                        <input 
-                                            type="number" 
-                                            className="form-control" 
-                                            id="costoMensual" 
-                                            name="costoMensual" 
-                                            value={currentPlan.costoMensual} 
-                                            onChange={handleChange} 
-                                            min="0"
-                                            step="0.01"
-                                            required 
-                                        />
-                                    </div>
-
-                                    {/* SELECCIÓN DE SERVICIOS INCLUIDOS */}
-                                    <div className="form-group">
-                                        <label>Servicios Incluidos</label>
-                                        <div className="border p-2" style={{ maxHeight: '150px', overflowY: 'auto' }}>
-                                            {serviciosDisponibles.length > 0 ? (
-                                                serviciosDisponibles.map(servicio => (
-                                                    <div className="form-check" key={servicio.id}>
-                                                        <input
-                                                            className="form-check-input"
-                                                            type="checkbox"
-                                                            id={`servicio-${servicio.id}`}
-                                                            checked={currentPlan.serviciosIncluidos.includes(servicio.id)}
-                                                            onChange={() => handleServiceToggle(servicio.id)}
-                                                        />
-                                                        <label className="form-check-label" htmlFor={`servicio-${servicio.id}`}>
-                                                            {servicio.nombre} (${servicio.precioBase})
-                                                        </label>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <p className="text-muted">No hay servicios disponibles. Cree servicios primero.</p>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="form-group">
-                                        <label htmlFor="estado">Estado</label>
-                                        <select
-                                            className="form-control" 
-                                            id="estado" 
-                                            name="estado" 
-                                            value={currentPlan.estado} 
-                                            onChange={handleChange}
-                                        >
-                                            <option value="Activo">Activo</option>
-                                            <option value="Inactivo">Inactivo</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="modal-footer">
-                                    <button type="button" className="btn btn-secondary" onClick={closeModal}>Cerrar</button>
-                                    <button type="submit" className="btn btn-primary" disabled={loading}>
-                                        {loading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-save"></i>} {currentPlan.id ? 'Guardar Cambios' : 'Crear Plan'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
+                <FormularioPlanModal
+                    showModal={showModal}
+                    onClose={closeModal}
+                    planInicial={currentPlan}
+                    serviciosDisponibles={serviciosDisponibles}
+                />
             )}
         </div>
     );

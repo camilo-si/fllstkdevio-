@@ -1,31 +1,30 @@
 import React from 'react';
-// Asegúrate de que estas rutas sean correctas en tu proyecto
-import Navbar from '../Navbar'; 
-import Sidemenu from './sidemenu'; 
-import Footer from './footer'; 
+import { Outlet } from 'react-router-dom'; // Import Outlet for nested routing
+// Importaciones corregidas
+import AppNavbar from '../Navbar'; 
+import Sidemenu from './Sidemenu'; // Fix: Corrected filename casing from './sidemenu'
+import Footer from '../Footer'; // Fix: Corrected path from './footer' to '../Footer' (main app footer)
 
-// Este componente usa { children } para inyectar la vista específica.
-function DashboardLayout({ children }) {
+// Componente de Layout para AdminLTE
+function DashboardLayout() {
     return (
         // 1. El 'wrapper' de AdminLTE es el contenedor principal de todo
         <div className="wrapper"> 
             
             {/* 2. Componentes Fijos de Navegación y Estilo */}
-            <Navbar />
+            <AppNavbar /> {/* Using the actual component name from Navbar.js */}
             <Sidemenu />
 
             {/* 3. Área de Contenido Principal (Content Wrapper) */}
-            {/* Aquí es donde React inyectará el contenido específico 
-               de cada ruta: AdminServicios.js o AdminPlanes.js 
-               Estos componentes ya deben usar las clases 'content-wrapper' y 'content' 
-            */}
-            {children} 
+            <div className="content-wrapper">
+                {/* Outlet renderiza los componentes de ruta anidados (AdminServicios, AdminPlanes, etc.) */}
+                <Outlet /> 
+            </div>
 
             {/* 4. Footer */}
             <Footer />
             
-            {/* 5. Otros elementos fijos del template, como la sidebar de control derecho si aplica */}
-            {/* <aside className="control-sidebar control-sidebar-dark"></aside> */}
+            {/* 5. Otros elementos fijos del template... */}
         </div>
     );
 }

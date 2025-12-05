@@ -1,6 +1,9 @@
 import React from 'react';
-import { db, auth, initializeFirebase, getPublicDataCollectionPath } from '../../utils/firebaseConfig';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
+import { db, auth, initializeFirebase, getPublicDataCollectionPath } from '../utils/firebaseConfig';
+import { collection, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
+import FormularioServicioModal from './FormularioServicioModal'; 
+
+/* global __app_id, __firebase_config, __initial_auth_token */ // Fix: Suppress no-undef warnings
 
 // Componente principal para la Gestión de Servicios
 function AdminServicios() {
@@ -11,13 +14,8 @@ function AdminServicios() {
 
     // Estado para el modal de Crear/Editar servicio
     const [showModal, setShowModal] = React.useState(false);
-    const [currentService, setCurrentService] = React.useState({ 
-        id: null, 
-        nombre: '', 
-        descripcion: '', 
-        precioBase: 0,
-        estado: 'Activo' // Nuevo campo para demostrar la edición
-    });
+    // Usamos null para crear, y el objeto de servicio para editar
+    const [currentService, setCurrentService] = React.useState(null); 
 
     // 1. Inicialización de Firebase y Auth
     React.useEffect(() => {
@@ -59,54 +57,7 @@ function AdminServicios() {
         return () => unsubscribe();
     }, [db]); // Dependencia en 'db' para re-ejecutar si la inicialización se completa
 
-    // Manejar cambios en el formulario del modal
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setCurrentService(prev => ({ ...prev, [name]: value }));
-    };
-
-    // 3. Crear o Actualizar un servicio
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        
-        // Validación simple
-        if (!currentService.nombre.trim() || !currentService.descripcion.trim()) {
-            alert("El nombre y la descripción son obligatorios.");
-            return;
-        }
-
-        const dataToSave = {
-            nombre: currentService.nombre,
-            descripcion: currentService.descripcion,
-            precioBase: Number(currentService.precioBase),
-            estado: currentService.estado
-        };
-
-        setLoading(true);
-        try {
-            const path = getServiciosCollectionPath();
-            if (currentService.id) {
-                // Actualizar
-                const serviceDocRef = doc(db, path, currentService.id);
-                await updateDoc(serviceDocRef, dataToSave);
-            } else {
-                // Crear
-                await addDoc(collection(db, path), {
-                    ...dataToSave,
-                    fechaCreacion: new Date().toISOString()
-                });
-            }
-            setShowModal(false);
-            setCurrentService({ id: null, nombre: '', descripcion: '', precioBase: 0, estado: 'Activo' });
-        } catch (err) {
-            console.error("Error al guardar el servicio:", err);
-            setError("Error al guardar el servicio.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // 4. Eliminar un servicio
+    // 3. Eliminar un servicio
     const handleDelete = async (id) => {
         // Usamos una alerta simple, pero se recomienda un modal personalizado.
         if (!window.confirm("¿Está seguro de que desea eliminar este servicio?")) {
@@ -125,24 +76,26 @@ function AdminServicios() {
         }
     };
 
-    // Funciones para el modal
+    // Funciones de control del Modal
     const openCreateModal = () => {
+        // Objeto vacío para crear
         setCurrentService({ id: null, nombre: '', descripcion: '', precioBase: 0, estado: 'Activo' });
         setShowModal(true);
     };
 
     const openEditModal = (servicio) => {
+        // Pasa el servicio completo para edición
         setCurrentService(servicio);
         setShowModal(true);
     };
 
     const closeModal = () => {
         setShowModal(false);
-        setCurrentService({ id: null, nombre: '', descripcion: '', precioBase: 0, estado: 'Activo' });
+        setCurrentService(null); // Limpiar el servicio actual al cerrar
     };
 
 
-    if (loading) return <div className="p-4 text-center"><i className="fas fa-spinner fa-spin"></i> Cargando...</div>;
+    if (loading && servicios.length === 0) return <div className="p-4 text-center"><i className="fas fa-spinner fa-spin"></i> Cargando servicios...</div>;
     if (error) return <div className="p-4 text-center text-danger">Error: {error}</div>;
 
     return (
@@ -164,7 +117,7 @@ function AdminServicios() {
                 </div>
             </section>
 
-            {/* Contenido principal */}
+            {/* Contenido principal (Listado) */}
             <section className="content">
                 <div className="container-fluid">
                     <div className="row">
@@ -241,80 +194,13 @@ function AdminServicios() {
                 </div>
             </section>
 
-            {/* Modal de Creación/Edición */}
+            {/* Invocación del Modal de Creación/Edición */}
             {showModal && (
-                <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
-                    <div className="modal-dialog">
-                        <div className="modal-content">
-                            <form onSubmit={handleSubmit}>
-                                <div className="modal-header">
-                                    <h5 className="modal-title">{currentService.id ? 'Editar Servicio' : 'Crear Nuevo Servicio'}</h5>
-                                    <button type="button" className="close" onClick={closeModal} aria-label="Close">
-                                        <span aria-hidden="true">&times;</span>
-                                    </button>
-                                </div>
-                                <div className="modal-body">
-                                    <div className="form-group">
-                                        <label htmlFor="nombre">Nombre del Servicio</label>
-                                        <input 
-                                            type="text" 
-                                            className="form-control" 
-                                            id="nombre" 
-                                            name="nombre" 
-                                            value={currentService.nombre} 
-                                            onChange={handleChange} 
-                                            required 
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label htmlFor="descripcion">Descripción</label>
-                                        <textarea 
-                                            className="form-control" 
-                                            id="descripcion" 
-                                            name="descripcion" 
-                                            value={currentService.descripcion} 
-                                            onChange={handleChange} 
-                                            required 
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label htmlFor="precioBase">Precio Base ($)</label>
-                                        <input 
-                                            type="number" 
-                                            className="form-control" 
-                                            id="precioBase" 
-                                            name="precioBase" 
-                                            value={currentService.precioBase} 
-                                            onChange={handleChange} 
-                                            min="0"
-                                            step="0.01"
-                                            required 
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label htmlFor="estado">Estado</label>
-                                        <select
-                                            className="form-control" 
-                                            id="estado" 
-                                            name="estado" 
-                                            value={currentService.estado} 
-                                            onChange={handleChange}
-                                        >
-                                            <option value="Activo">Activo</option>
-                                            <option value="Inactivo">Inactivo</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="modal-footer">
-                                    <button type="button" className="btn btn-secondary" onClick={closeModal}>Cerrar</button>
-                                    <button type="submit" className="btn btn-primary" disabled={loading}>
-                                        {loading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-save"></i>} {currentService.id ? 'Guardar Cambios' : 'Crear Servicio'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
+                <FormularioServicioModal
+                    showModal={showModal}
+                    onClose={closeModal}
+                    servicioInicial={currentService}
+                />
             )}
         </div>
     );
