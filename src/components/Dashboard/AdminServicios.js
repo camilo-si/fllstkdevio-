@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom'; // 1. IMPORTANTE: Importamos Link
 import { db, auth, getPublicDataCollectionPath } from '../utils/firebaseConfig';
 import FormularioServicioModal from './FormularioServicioModal'; 
 import { collection, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
@@ -15,21 +16,17 @@ const DATOS_EJEMPLO = [
 
 function AdminServicios() {
     // Estado para almacenar los servicios
-    const [servicios, setServicios] = React.useState([]);
-    const [loading, setLoading] = React.useState(true);
-    const [error, setError] = React.useState(null);
+    const [servicios, setServicios] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     // Estado para el modal de Crear/Editar servicio
-    const [showModal, setShowModal] = React.useState(false);
-    const [currentService, setCurrentService] = React.useState(null); 
+    const [showModal, setShowModal] = useState(false);
+    const [currentService, setCurrentService] = useState(null); 
 
- //   // 1. Inicialización de Firebase y Auth
-   React.useEffect(() => {
-        //const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        //const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        //const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        //
-        //initializeFirebase(firebaseConfig, initialAuthToken, auth, db, setError);
+    // 1. Inicialización de Firebase y Auth (Opcional si ya está global)
+    useEffect(() => {
+        // Lógica de inicialización si es necesaria
     }, []);
 
     // Ruta de la colección
@@ -39,7 +36,7 @@ function AdminServicios() {
     };
 
     // 2. Carga y escucha en tiempo real
-    React.useEffect(() => {
+    useEffect(() => {
         if (!db) return;
         
         const path = getServiciosCollectionPath();
@@ -64,7 +61,7 @@ function AdminServicios() {
     // 3. Eliminar un servicio
     const handleDelete = async (id) => {
         // Evitar borrar datos de ejemplo
-        if (id.startsWith('mock-')) {
+        if (id.toString().startsWith('mock-')) {
             alert("No puedes eliminar un dato de ejemplo. Crea un servicio real primero.");
             return;
         }
@@ -92,7 +89,7 @@ function AdminServicios() {
     };
 
     const openEditModal = (servicio) => {
-        if (servicio.id.startsWith('mock-')) {
+        if (servicio.id.toString().startsWith('mock-')) {
             alert("Estás viendo un dato de ejemplo. Para editar, primero crea un registro real.");
             return;
         }
@@ -122,7 +119,7 @@ function AdminServicios() {
                         </div>
                         <div className="col-sm-6">
                             <ol className="breadcrumb float-sm-right">
-                                <li className="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
+                                <li className="breadcrumb-item"><Link to="/dashboard">Dashboard</Link></li>
                                 <li className="breadcrumb-item active">Servicios</li>
                             </ol>
                         </div>
@@ -182,6 +179,16 @@ function AdminServicios() {
                                                         </span>
                                                     </td>
                                                     <td className="text-center">
+                                                        
+                                                        {/* 2. BOTÓN VER DETALLE (Nuevo) */}
+                                                        <Link 
+                                                            to={`/dashboard/servicios/${servicio.id}`} 
+                                                            className="btn btn-sm btn-info mr-1" 
+                                                            title="Ver Detalle API"
+                                                        >
+                                                            <i className="fas fa-eye"></i>
+                                                        </Link>
+
                                                         <button 
                                                             className="btn btn-sm btn-warning mr-1" 
                                                             title="Editar"
